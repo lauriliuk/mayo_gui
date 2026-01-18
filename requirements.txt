@@ -1,1 +1,5 @@
-# No external Python packages required; standard library only
+# Core dependency for drag-and-drop support (optional)
+tkinterdnd2>=0.3.0
+
+# Note: tkinter is part of the Python standard library on Windows
+# For drag-and-drop support to work, tkinterdnd2 must be installed

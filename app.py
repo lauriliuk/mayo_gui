@@ -9,6 +9,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
+try:
+    from tkinterdnd2 import DND_FILES, DND_TEXT
+    HAS_DND = True
+except ImportError:
+    HAS_DND = False
+
 
 class MayoConverterApp(tk.Tk):
     def __init__(self):
@@ -70,12 +76,22 @@ class MayoConverterApp(tk.Tk):
         ttk.Entry(row, textvariable=self.mayo_path_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
         ttk.Button(row, text="Browse", command=self.browse_mayo).pack(side=tk.LEFT)
 
-        # Input file
+        # Input file with drag-and-drop
         row = ttk.Frame(frm)
         row.pack(fill=tk.X, pady=4)
         ttk.Label(row, text="Input file (.stp/.step):").pack(side=tk.LEFT)
-        ttk.Entry(row, textvariable=self.input_path_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        self.input_entry = ttk.Entry(row, textvariable=self.input_path_var)
+        self.input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
         ttk.Button(row, text="Browse", command=self.browse_input).pack(side=tk.LEFT)
+        
+        # Register input entry for drag-and-drop (if available)
+        if HAS_DND:
+            try:
+                self.input_entry.drop_target_register(DND_FILES, DND_TEXT)
+                self.input_entry.dnd_bind('<<Drop>>', self.on_drop_input)
+            except tk.TclError:
+                # DnD registration failed; app will still work with browse button
+                pass
 
         # Output file
         row = ttk.Frame(frm)
@@ -89,6 +105,8 @@ class MayoConverterApp(tk.Tk):
         row.pack(fill=tk.X, pady=8)
         self.convert_btn = ttk.Button(row, text="Convert", command=self.start_conversion)
         self.convert_btn.pack(side=tk.LEFT)
+        self.preview_btn = ttk.Button(row, text="Preview", command=self.preview_output, state=tk.DISABLED)
+        self.preview_btn.pack(side=tk.LEFT, padx=4)
         ttk.Button(row, text="Open output folder", command=self.open_output_folder).pack(side=tk.LEFT, padx=6)
 
         # Log area
@@ -126,6 +144,72 @@ class MayoConverterApp(tk.Tk):
         p = filedialog.asksaveasfilename(title="Select output file", defaultextension=".glb", filetypes=[("glTF (glb)", "*.glb;*.gltf"), ("All files", "*.*")])
         if p:
             self.output_path_var.set(p)
+
+    def on_drop_input(self, event):
+        """Handle drag-and-drop of files onto input entry."""
+        data = event.data
+        # Parse the dropped data (may contain braces on Windows)
+        files = self.parse_dnd_data(data)
+        
+        if not files:
+            return
+        
+        # Use the first file dropped
+        dropped_file = files[0]
+        
+        # Check if it's a valid STEP file
+        valid_extensions = ('.step', '.stp')
+        if not dropped_file.lower().endswith(valid_extensions):
+            messagebox.showwarning("Invalid file", f"Please drop a STEP file (.step or .stp)\nReceived: {os.path.basename(dropped_file)}")
+            return
+        
+        self.input_path_var.set(dropped_file)
+        
+        # Auto-generate output file path
+        base = os.path.splitext(os.path.basename(dropped_file))[0]
+        dirpart = os.path.dirname(dropped_file)
+        if '/' in dropped_file and '\\' not in dropped_file:
+            out = dirpart.rstrip('/') + '/' + base + ".glb"
+        else:
+            out = os.path.join(dirpart, base + ".glb")
+        self.output_path_var.set(out)
+        
+        self.log.insert(tk.END, f"Loaded input file: {dropped_file}\n")
+        self.log.see(tk.END)
+
+    @staticmethod
+    def parse_dnd_data(data):
+        """Parse drag-and-drop data which may contain file paths wrapped in braces."""
+        # Remove surrounding braces if present (Windows behavior)
+        data = data.strip()
+        if data.startswith('{') and data.endswith('}'):
+            data = data[1:-1]
+        
+        # Split by spaces but handle paths with spaces
+        # On Windows, multiple files are space-separated, each potentially in braces
+        files = []
+        current = ""
+        in_brace = False
+        
+        for char in data:
+            if char == '{':
+                in_brace = True
+            elif char == '}':
+                in_brace = False
+                if current:
+                    files.append(current.strip())
+                    current = ""
+            elif char == ' ' and not in_brace:
+                if current:
+                    files.append(current.strip())
+                    current = ""
+            else:
+                current += char
+        
+        if current:
+            files.append(current.strip())
+        
+        return [f for f in files if f]
 
     def start_conversion(self):
         mayo = self.mayo_path_var.get().strip()
@@ -205,7 +289,9 @@ class MayoConverterApp(tk.Tk):
                     ok = msg
                     if ok:
                         self.log.insert(tk.END, "\nConversion finished successfully.\n")
+                        # Enable preview button on successful conversion
                         if not getattr(self, '_closing', False):
+                            self.preview_btn.config(state=tk.NORMAL)
                             messagebox.showinfo("Done", "Conversion finished successfully")
                     else:
                         self.log.insert(tk.END, "\nConversion failed. See log above.\n")
@@ -243,6 +329,53 @@ class MayoConverterApp(tk.Tk):
                 subprocess.Popen(['xdg-open', folder])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open folder: {e}")
+
+    def preview_output(self):
+        """Open 3D preview of the converted model using 3D Viewer."""
+        out = self.output_path_var.get().strip()
+        
+        if not out:
+            messagebox.showwarning("Preview", "No output file selected")
+            return
+        
+        if not os.path.exists(out):
+            messagebox.showerror("Preview", "Output file does not exist. Please convert first.")
+            return
+        
+        # Check if it's a valid 3D model format
+        valid_formats = ('.glb', '.gltf')
+        if not out.lower().endswith(valid_formats):
+            messagebox.showwarning("Preview", f"File format not supported for preview.\nSupported: {', '.join(valid_formats)}")
+            return
+        
+        # Run preview in a separate thread to avoid blocking the GUI
+        preview_thread = threading.Thread(target=self.show_3d_preview, args=(out,))
+        preview_thread.daemon = True
+        preview_thread.start()
+        
+        self.log.insert(tk.END, f"Opening 3D preview...\n")
+        self.log.see(tk.END)
+
+    def show_3d_preview(self, model_path):
+        """Display 3D model using Microsoft 3D Viewer."""
+        try:
+            # Open with 3D Viewer
+            subprocess.Popen(['3dviewer.exe', model_path])
+            self.log.insert(tk.END, f"Preview opened in 3D Viewer\n")
+            self.log.see(tk.END)
+        except FileNotFoundError:
+            # If 3D Viewer not found, try default association
+            try:
+                if sys.platform == 'win32':
+                    os.startfile(model_path)
+                    self.log.insert(tk.END, f"Preview opened with default app\n")
+                    self.log.see(tk.END)
+            except Exception as e:
+                self.log.insert(tk.END, f"Preview error: {str(e)}\n")
+                self.log.see(tk.END)
+        except Exception as e:
+            self.log.insert(tk.END, f"Preview error: {str(e)}\n")
+            self.log.see(tk.END)
 
     def show_credits(self):
         """Show credits dialog with Mayo repo link and license text."""

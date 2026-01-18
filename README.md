@@ -30,6 +30,15 @@ Next steps (optional)
 - Add batch conversion list and presets.
 - Add embedded 3D preview for quick inspection of results.
 
+## License
+
+This project is available under a **Dual License** model:
+
+- **Commercial License** (Default) - All rights reserved. For sales, commercial use, or proprietary deployment, contact the copyright holder.
+- **MIT License** (Alternative) - Available for non-commercial, open-source projects that maintain open-source status.
+
+See [LICENSE](LICENSE) file for full details.
+
 ## Credits
 
 - [Mayo](https://github.com/fougue/mayo) – Open source 3D file converter and library
