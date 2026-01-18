@@ -29,3 +29,7 @@ Next steps (optional)
 - Add drag-and-drop support.
 - Add batch conversion list and presets.
 - Add embedded 3D preview for quick inspection of results.
+
+## Credits
+
+- [Mayo](https://github.com/fougue/mayo) – Open source 3D file converter and library
