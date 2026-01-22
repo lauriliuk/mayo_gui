@@ -11,6 +11,7 @@ Requirements
 - Windows (the app uses `os.startfile` to open folders)
 - Python 3.8+ (standard library only; no extra packages required)
 - `mayo-conv.exe` available on PATH or point the GUI to the executable location
+- Optional: Blender installed separately if using model simplification
 
 Run
 
@@ -23,6 +24,7 @@ python app.py
 
 Notes
 - The GUI simply invokes the external `mayo-conv` executable you already have installed. It does not embed the Mayo library.
+- If you enable simplification, the app calls your local Blender install via `blender_simplify.py`.
 - For a 3D preview, we can integrate a web-based preview using Three.js in a later iteration. This initial version keeps things very simple.
 
 Next steps (optional)

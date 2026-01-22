@@ -3,3 +3,12 @@ tkinterdnd2>=0.3.0
 
 # Note: tkinter is part of the Python standard library on Windows
 # For drag-and-drop support to work, tkinterdnd2 must be installed
+
+# Optional Dependencies:
+# - Mayo: For STEP/STP to GLB/GLTF conversion
+#   Download from: https://github.com/fougue/mayo/releases
+#   
+# - Blender: For optional model simplification/decimation
+#   Download from: https://www.blender.org/download/
+#   Version 4.2+ recommended
+#   The app will auto-detect common Blender installation paths on Windows
